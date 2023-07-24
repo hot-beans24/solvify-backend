@@ -1,25 +1,24 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, UnauthorizedException } from '@nestjs/common'
 import { User } from '@prisma/client'
 import * as bcypt from 'bcrypt'
 
-import { PrismaService } from 'src/prisma.service'
 import { UserService } from 'src/user/user.service'
 import { LoginDataDto, SignupDataDto } from './auth.dto'
 
 @Injectable()
 export class AuthService {
-  constructor(private prisma: PrismaService, private userService: UserService) {}
+  constructor(private readonly userService: UserService) {}
 
-  async login(data: LoginDataDto): Promise<User | { message: string }> {
-    const user = this.userService.findUser(data.email)
-    if (!user) {
-      return { message: 'User not found' }
-    } else {
-      return user
+  async login(data: LoginDataDto): Promise<User> {
+    const user = await this.userService.findByEmail(data.email)
+    if (!(await bcypt.compare(data.password, user.password))) {
+      throw new UnauthorizedException('パスワードが違います')
     }
+    return user
   }
 
   async signup(data: SignupDataDto): Promise<User> {
-    return this.userService.createUser(data)
+    await this.userService.createUser(data)
+    return this.login(data)
   }
 }
